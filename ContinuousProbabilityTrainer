@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Probability Term Trainer | Utica University</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        .bg-utica-navy { background-color: #0C223F; }
+        .bg-utica-orange { background-color: #E65300; }
+        .text-utica-navy { color: #0C223F; }
+        .text-utica-orange { color: #E65300; }
+        .border-utica-navy { border-color: #0C223F; }
+        .border-utica-orange { border-color: #E65300; }
+        
+        /* Perspective for 3D card flip */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        /* Smooth transitions */
+        .card-inner {
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .selected-term {
+            border-color: #E65300 !important;
+            background-color: #fff7ed !important;
+            box-shadow: 0 0 0 3px rgba(230, 83, 0, 0.3) !important;
+        }
+
+        .matched-pair {
+            opacity: 0.5;
+            pointer-events: none;
+            background-color: #f0fdf4 !important;
+            border-color: #22c55e !important;
+        }
+
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-utica-navy text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-utica-orange text-white font-extrabold px-3 py-1.5 rounded-lg text-lg tracking-wider">
+                    ECN 241
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Continuous Probability Trainer</h1>
+                    <p class="text-xs text-slate-300">Utica University — Department of Business & Economics</p>
+                </div>
+            </div>
+
+            <!-- Mode Selector Tabs -->
+            <div class="flex bg-slate-800/60 p-1 rounded-xl border border-slate-700">
+                <button id="nav-matching" onclick="switchTab('matching')" class="px-5 py-2 rounded-lg font-semibold text-sm transition-all bg-utica-orange text-white shadow-sm">
+                    🎮 Matching Game
+                </button>
+                <button id="nav-flashcards" onclick="switchTab('flashcards')" class="px-5 py-2 rounded-lg font-semibold text-sm transition-all text-slate-300 hover:text-white">
+                    🎴 Flashcards Mode
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ================= MODE 1: MATCHING GAME ================= -->
+        <section id="matching-section" class="space-y-6">
+            <!-- Game Controls & Dashboard -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-6">
+                    <div>
+                        <span class="text-xs uppercase font-bold text-slate-400 block">Timer</span>
+                        <span id="timer-display" class="text-2xl font-black text-utica-navy font-mono">00:00</span>
+                    </div>
+                    <div>
+                        <span class="text-xs uppercase font-bold text-slate-400 block">Matches</span>
+                        <span id="matches-display" class="text-2xl font-black text-utica-orange">0 / 8</span>
+                    </div>
+                    <div>
+                        <span class="text-xs uppercase font-bold text-slate-400 block">Best Time</span>
+                        <span id="best-time-display" class="text-xl font-bold text-slate-600 font-mono">--:--</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button onclick="resetMatchingGame()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition flex items-center gap-2">
+                        🔄 Restart Game
+                    </button>
+                </div>
+            </div>
+
+            <!-- Instructions Banner -->
+            <div class="bg-orange-50 border-l-4 border-utica-orange p-4 rounded-xl text-slate-700 text-sm">
+                <strong>How to Play:</strong> Click a <strong>Term</strong> on the left, then click its corresponding <strong>Definition</strong> on the right to make a match!
+            </div>
+
+            <!-- Matching Columns -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Terms Column -->
+                <div class="space-y-3">
+                    <h3 class="font-bold text-utica-navy text-lg flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-utica-orange inline-block"></span>
+                        Terms
+                    </h3>
+                    <div id="terms-container" class="space-y-3"></div>
+                </div>
+
+                <!-- Definitions Column -->
+                <div class="space-y-3">
+                    <h3 class="font-bold text-utica-navy text-lg flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-utica-navy inline-block"></span>
+                        Definitions & Formula Context
+                    </h3>
+                    <div id="definitions-container" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= MODE 2: FLASHCARDS ================= -->
+        <section id="flashcards-section" class="hidden space-y-6 max-w-3xl mx-auto">
+            <!-- Progress Tracker -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center">
+                <div>
+                    <span class="text-xs font-bold text-slate-400 uppercase">Card Progress</span>
+                    <div id="flashcard-counter" class="text-lg font-extrabold text-utica-navy">Card 1 of 8</div>
+                </div>
+                <div class="flex items-center gap-4 text-sm font-semibold">
+                    <span class="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">Mastered: <span id="mastered-count">0</span></span>
+                    <span class="text-amber-600 bg-amber-50 px-3 py-1 rounded-lg">Review Needed: <span id="review-count">0</span></span>
+                </div>
+            </div>
+
+            <!-- Interactive 3D Card -->
+            <div class="perspective-1000 w-full h-80 cursor-pointer" onclick="flipFlashcard()">
+                <div id="flashcard-inner" class="card-inner relative w-full h-full transform-style-3d rounded-2xl shadow-lg border-2 border-slate-200 bg-white hover:border-utica-orange transition-colors">
+                    
+                    <!-- Front of Card (Term) -->
+                    <div class="absolute inset-0 backface-hidden flex flex-col justify-between p-8 bg-white rounded-2xl">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-utica-orange bg-orange-50 px-3 py-1 rounded-full">Term</span>
+                            <span class="text-xs text-slate-400">Click card to flip 🔄</span>
+                        </div>
+                        <div class="text-center my-auto">
+                            <h2 id="card-term" class="text-2xl sm:text-3xl font-black text-utica-navy">Term Title</h2>
+                        </div>
+                        <div class="text-center text-xs text-slate-400">Utica University ECN 241</div>
+                    </div>
+
+                    <!-- Back of Card (Definition & Formula) -->
+                    <div class="absolute inset-0 backface-hidden rotate-y-180 flex flex-col justify-between p-8 bg-slate-900 text-white rounded-2xl">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-utica-orange">Definition & Key Formula</span>
+                            <span class="text-xs text-slate-400">Click to flip back 🔄</span>
+                        </div>
+                        <div class="my-auto space-y-3">
+                            <p id="card-definition" class="text-base sm:text-lg leading-relaxed font-medium text-slate-200">Definition details...</p>
+                            <div id="card-formula" class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-xs font-mono text-amber-300">
+                                Formula/Example details
+                            </div>
+                        </div>
+                        <div class="text-center text-xs text-slate-500">Mastery Self-Assessment</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Controls & Self-Assessment -->
+            <div class="flex flex-col sm:flex-row gap-4 justify-between items-center">
+                <button onclick="prevFlashcard()" class="w-full sm:w-auto px-5 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition">
+                    ← Previous
+                </button>
+
+                <div class="flex gap-3 w-full sm:w-auto">
+                    <button onclick="markFlashcard(false)" class="flex-1 sm:flex-none px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-sm transition">
+                        🤔 Need Review
+                    </button>
+                    <button onclick="markFlashcard(true)" class="flex-1 sm:flex-none px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm transition">
+                        ✅ Got It!
+                    </button>
+                </div>
+
+                <button onclick="nextFlashcard()" class="w-full sm:w-auto px-5 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition">
+                    Next →
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Completion Modal -->
+    <div id="completion-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 text-center space-y-6 shadow-2xl border border-slate-100">
+            <div class="w-20 h-20 bg-orange-100 text-utica-orange rounded-full flex items-center justify-center mx-auto text-4xl">
+                🏆
+            </div>
+            <div>
+                <h2 class="text-2xl font-black text-utica-navy">Module Mastered!</h2>
+                <p class="text-slate-600 text-sm mt-1">Great job finishing the continuous probability term challenge.</p>
+            </div>
+            
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500 font-medium">Time Taken:</span>
+                    <span id="final-time" class="font-bold text-utica-navy font-mono">00:00</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-500 font-medium">Status:</span>
+                    <span class="font-bold text-emerald-600">100% Correct</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeModal(); resetMatchingGame();" class="w-full py-3.5 bg-utica-orange hover:bg-orange-700 text-white font-bold rounded-xl transition shadow-md">
+                    Play Again
+                </button>
+                <button onclick="closeModal(); switchTab('flashcards');" class="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">
+                    Study Cards
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data & Script Logic -->
+    <script>
+        const termsData = [
+            {
+                id: "crv",
+                term: "Continuous Random Variable",
+                definition: "A variable that can take on an infinite number of possible values within a continuous interval (e.g., time, height, weight).",
+                formula: "Example: x ∈ [0, ∞) or measured continuous intervals."
+            },
+            {
+                id: "pdf",
+                term: "Probability Density Function (PDF)",
+                definition: "A function f(x) representing relative likelihood; the total area under the curve equals 1, and probabilities equal areas over intervals.",
+                formula: "Key Rule: ∫ f(x) dx = 1  and  P(a ≤ X ≤ b) = Area under f(x)"
+            },
+            {
+                id: "cdf",
+                term: "Cumulative Distribution Function (CDF)",
+                definition: "A function F(x) giving the cumulative probability that a random variable X is less than or equal to a specific value x.",
+                formula: "Formula: F(x) = P(X ≤ x)"
+            },
+            {
+                id: "norm",
+                term: "Normal Distribution",
+                definition: "A continuous bell-shaped distribution that is completely symmetric around its mean μ, determined by mean μ and standard deviation σ.",
+                formula: "Notation: X ~ N(μ, σ²)"
+            },
+            {
+                id: "snorm",
+                term: "Standard Normal Distribution",
+                definition: "A specialized normal distribution standardized to have a mean of 0 and a standard deviation of 1.",
+                formula: "Notation: Z ~ N(0, 1)"
+            },
+            {
+                id: "zscore",
+                term: "Z-Score",
+                definition: "The number of standard deviations a raw data point x lies above or below the mean μ.",
+                formula: "Formula: Z = (x - μ) / σ"
+            },
+            {
+                id: "unif",
+                term: "Continuous Uniform Distribution",
+                definition: "A rectangular continuous distribution where every sub-interval of equal length has an equal probability of occurrence.",
+                formula: "Density: f(x) = 1 / (b - a)  for a ≤ x ≤ b"
+            },
+            {
+                id: "exp",
+                term: "Exponential Distribution",
+                definition: "A continuous distribution often used to model the waiting time between Poisson-distributed independent events.",
+                formula: "Density: f(x) = λ e^(-λx)  for x ≥ 0"
+            }
+        ];
+
+        // State Variables
+        let selectedTermId = null;
+        let matchedCount = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let gameActive = false;
+        let currentFlashcardIndex = 0;
+        let isCardFlipped = false;
+        let cardStatus = {}; // { id: 'mastered' | 'review' }
+
+        // Initialize App
+        window.onload = () => {
+            resetMatchingGame();
+            renderFlashcard();
+        };
+
+        // Switch Tabs Mode
+        function switchTab(mode) {
+            const matchingSection = document.getElementById('matching-section');
+            const flashcardsSection = document.getElementById('flashcards-section');
+            const navMatching = document.getElementById('nav-matching');
+            const navFlashcards = document.getElementById('nav-flashcards');
+
+            if (mode === 'matching') {
+                matchingSection.classList.remove('hidden');
+                flashcardsSection.classList.add('hidden');
+                navMatching.className = "px-5 py-2 rounded-lg font-semibold text-sm transition-all bg-utica-orange text-white shadow-sm";
+                navFlashcards.className = "px-5 py-2 rounded-lg font-semibold text-sm transition-all text-slate-300 hover:text-white";
+            } else {
+                matchingSection.classList.add('hidden');
+                flashcardsSection.classList.remove('hidden');
+                navFlashcards.className = "px-5 py-2 rounded-lg font-semibold text-sm transition-all bg-utica-orange text-white shadow-sm";
+                navMatching.className = "px-5 py-2 rounded-lg font-semibold text-sm transition-all text-slate-300 hover:text-white";
+                renderFlashcard();
+            }
+        }
+
+        // ================= MATCHING GAME LOGIC =================
+        function resetMatchingGame() {
+            clearInterval(timerInterval);
+            timerSeconds = 0;
+            matchedCount = 0;
+            selectedTermId = null;
+            gameActive = false;
+
+            document.getElementById('timer-display').innerText = "00:00";
+            document.getElementById('matches-display').innerText = `0 / ${termsData.length}`;
+
+            // Shuffle terms & definitions independently
+            const shuffledTerms = [...termsData].sort(() => Math.random() - 0.5);
+            const shuffledDefs = [...termsData].sort(() => Math.random() - 0.5);
+
+            // Render Terms
+            const termsContainer = document.getElementById('terms-container');
+            termsContainer.innerHTML = shuffledTerms.map(item => `
+                <button id="term-${item.id}" onclick="handleTermClick('${item.id}')" 
+                    class="w-full text-left p-4 bg-white hover:bg-slate-50 rounded-xl border-2 border-slate-200 transition-all font-bold text-utica-navy shadow-sm flex justify-between items-center">
+                    <span>${item.term}</span>
+                    <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded">Term</span>
+                </button>
+            `).join('');
+
+            // Render Definitions
+            const defsContainer = document.getElementById('definitions-container');
+            defsContainer.innerHTML = shuffledDefs.map(item => `
+                <button id="def-${item.id}" onclick="handleDefinitionClick('${item.id}')" 
+                    class="w-full text-left p-4 bg-white hover:bg-slate-50 rounded-xl border-2 border-slate-200 transition-all text-sm text-slate-700 shadow-sm leading-relaxed">
+                    ${item.definition}
+                </button>
+            `).join('');
+        }
+
+        function startTimer() {
+            if (gameActive) return;
+            gameActive = true;
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                document.getElementById('timer-display').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function handleTermClick(id) {
+            startTimer();
+            if (document.getElementById(`term-${id}`).classList.contains('matched-pair')) return;
+
+            // Clear previous selections
+            termsData.forEach(item => {
+                const el = document.getElementById(`term-${item.id}`);
+                if (el) el.classList.remove('selected-term');
+            });
+
+            selectedTermId = id;
+            document.getElementById(`term-${id}`).classList.add('selected-term');
+        }
+
+        function handleDefinitionClick(id) {
+            if (!selectedTermId) return;
+            startTimer();
+
+            const termEl = document.getElementById(`term-${selectedTermId}`);
+            const defEl = document.getElementById(`def-${id}`);
+
+            if (selectedTermId === id) {
+                // CORRECT MATCH!
+                termEl.className = "w-full text-left p-4 rounded-xl border-2 transition-all font-bold shadow-sm matched-pair flex justify-between items-center";
+                defEl.className = "w-full text-left p-4 rounded-xl border-2 transition-all text-sm shadow-sm leading-relaxed matched-pair";
+                
+                matchedCount++;
+                document.getElementById('matches-display').innerText = `${matchedCount} / ${termsData.length}`;
+                selectedTermId = null;
+
+                // Check Win
+                if (matchedCount === termsData.length) {
+                    clearInterval(timerInterval);
+                    confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+                    
+                    document.getElementById('final-time').innerText = document.getElementById('timer-display').innerText;
+                    document.getElementById('completion-modal').classList.remove('hidden');
+
+                    // Save best time
+                    const best = localStorage.getItem('cp_best_time');
+                    if (!best || timerSeconds < parseInt(best)) {
+                        localStorage.setItem('cp_best_time', timerSeconds);
+                        const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                        const secs = String(timerSeconds % 60).padStart(2, '0');
+                        document.getElementById('best-time-display').innerText = `${mins}:${secs}`;
+                    }
+                }
+            } else {
+                // WRONG MATCH
+                termEl.classList.add('shake');
+                defEl.classList.add('shake');
+
+                setTimeout(() => {
+                    termEl.classList.remove('shake', 'selected-term');
+                    defEl.classList.remove('shake');
+                    selectedTermId = null;
+                }, 400);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('completion-modal').classList.add('hidden');
+        }
+
+        // ================= FLASHCARD LOGIC =================
+        function renderFlashcard() {
+            const card = termsData[currentFlashcardIndex];
+            const cardInner = document.getElementById('flashcard-inner');
+            
+            // Unflip first if flipped
+            if (isCardFlipped) {
+                cardInner.classList.remove('rotate-y-180');
+                isCardFlipped = false;
+            }
+
+            setTimeout(() => {
+                document.getElementById('card-term').innerText = card.term;
+                document.getElementById('card-definition').innerText = card.definition;
+                document.getElementById('card-formula').innerText = card.formula;
+                document.getElementById('flashcard-counter').innerText = `Card ${currentFlashcardIndex + 1} of ${termsData.length}`;
+            }, isCardFlipped ? 200 : 0);
+
+            updateFlashcardStats();
+        }
+
+        function flipFlashcard() {
+            const cardInner = document.getElementById('flashcard-inner');
+            isCardFlipped = !isCardFlipped;
+            if (isCardFlipped) {
+                cardInner.classList.add('rotate-y-180');
+            } else {
+                cardInner.classList.remove('rotate-y-180');
+            }
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex = (currentFlashcardIndex + 1) % termsData.length;
+            renderFlashcard();
+        }
+
+        function prevFlashcard() {
+            currentFlashcardIndex = (currentFlashcardIndex - 1 + termsData.length) % termsData.length;
+            renderFlashcard();
+        }
+
+        function markFlashcard(isMastered) {
+            const card = termsData[currentFlashcardIndex];
+            cardStatus[card.id] = isMastered ? 'mastered' : 'review';
+            nextFlashcard();
+        }
+
+        function updateFlashcardStats() {
+            let mastered = 0;
+            let review = 0;
+            Object.values(cardStatus).forEach(val => {
+                if (val === 'mastered') mastered++;
+                if (val === 'review') review++;
+            });
+            document.getElementById('mastered-count').innerText = mastered;
+            document.getElementById('review-count').innerText = review;
+        }
+    </script>
+</body>
+</html>
